@@ -137,7 +137,7 @@ The model generalizes well and shows minimal overfitting.
 ```bash
 pip install -r requirements.txt
 ```
-Required packages:
+### Required packages:
 
 pandas
 
@@ -149,7 +149,7 @@ lightgbm
 
 matplotlib
 
-Run the Full Pipeline
+### Run the Full Pipeline
 ```bash
 python src/main.py
 ```
@@ -161,7 +161,7 @@ This will:
 - Evaluate on validation and test sets
 - Save all metrics and plots
 
-Project Structure
+### Project Structure
 ```
 .
 ├── src/
@@ -173,7 +173,7 @@ Project Structure
 ├── outputs/           # Saved metrics and figures
 ├── README.md
 ```
-Notes and Future Improvements
+### Notes and Future Improvements
 - The pipeline is easily extensible to other models (XGBoost, CatBoost, linear baselines)
 - Hyperparameter tuning and cross-validation could further improve performance
 - Feature importance analysis could be extended using SHAP values
