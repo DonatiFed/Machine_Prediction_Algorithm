@@ -48,9 +48,12 @@ def plot_target_log_hist(y: np.ndarray, out_path: str, bins: int = 60) -> None:
 
 
 def plot_pred_vs_actual(
-    y_true: np.ndarray, y_pred: np.ndarray, out_path: str, max_points: int = 25_000
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    out_path: str,
+    max_points: int = 25_000,
 ) -> None:
-    """Predicted vs actual scatter plot (optionally subsampled for speed and file size)."""
+    """Predicted vs actual scatter plot (subsampled for speed and file size)."""
     n = len(y_true)
     if n > max_points:
         idx = np.random.RandomState(42).choice(n, size=max_points, replace=False)
@@ -125,7 +128,6 @@ def plot_feature_importance_lgbm(pipe, out_path: str, top_n: int = 20) -> None:
 # ---------------------------------------------------------------------
 def evaluate_and_save(
     model,
-    preprocessor,
     X_val,
     y_val,
     X_test,
@@ -142,17 +144,17 @@ def evaluate_and_save(
     """
     ensure_dir(output_dir)
 
-    # Validation metrics
+    # Validation
     y_val_pred = np.expm1(model.pipeline.predict(X_val))
     val_metrics = regression_metrics(y_val.values, y_val_pred)
     save_json(val_metrics, os.path.join(output_dir, "val_metrics.json"))
 
-    # Test metrics
+    # Test
     y_test_pred = np.expm1(model.pipeline.predict(X_test))
     test_metrics = regression_metrics(y_test.values, y_test_pred)
     save_json(test_metrics, os.path.join(output_dir, "test_metrics.json"))
 
-    # Diagnostics
+    # Diagnostics (test set)
     plot_pred_vs_actual(
         y_test.values,
         y_test_pred,
@@ -179,6 +181,7 @@ def evaluate_and_save(
 if __name__ == "__main__":
     """
     Quick sanity test: trains LightGBM via model.py and writes plots/metrics to outputs_eval_test/.
+
     Run:
       python src/evaluate.py
     """
@@ -187,7 +190,7 @@ if __name__ == "__main__":
     from preprocess import build_preprocessor, drop_leakage_and_text
 
     OUT_DIR = "outputs_eval_test"
-    DATA_PATH = "BIT_AI_assignment_data.csv" 
+    DATA_PATH = "BIT_AI_assignment_data.csv"
 
     ensure_dir(OUT_DIR)
 
