@@ -9,11 +9,14 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 
+# ---------------------------------------------------------------------
+# Column definitions
+# ---------------------------------------------------------------------
 ID_COLS = ["Sales ID", "Machine ID", "Model ID"]
 TARGET_COL = "Sales Price"
 DATE_COL = "Sales date"
 
-# Columns that are truly numeric (or numeric IDs)
+# Columns that truly behave as numeric values or numeric identifiers
 NUMERIC_LIKE_COLS = [
     "Year Made",
     "MachineHours CurrentMeter",
@@ -21,6 +24,9 @@ NUMERIC_LIKE_COLS = [
 ]
 
 
+# ---------------------------------------------------------------------
+# Data container
+# ---------------------------------------------------------------------
 @dataclass(frozen=True)
 class DataSplit:
     X_train: pd.DataFrame
@@ -31,32 +37,37 @@ class DataSplit:
     y_test: pd.Series
 
 
+# ---------------------------------------------------------------------
+# Loading & cleaning
+# ---------------------------------------------------------------------
 def load_raw_csv(path: str) -> pd.DataFrame:
-    """Load raw CSV. Keep it simple and robust."""
+    """Load the raw CSV file with minimal assumptions."""
     return pd.read_csv(path, low_memory=False)
 
 
 def basic_clean(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Minimal, safe cleaning:
-    - normalize missing tokens
-    - parse target and date
-    - create basic time features
-    - create machine_age
+    Apply minimal, safe cleaning steps:
+    - normalize missing-value tokens
+    - validate and clean target
+    - extract simple time features
+    - create machine age
     - coerce truly numeric columns
-    - drop pure identifiers
+    - drop pure identifier columns
     """
     df = df.copy()
+
+    # Remove accidental index columns from CSV exports
     df = df.loc[:, ~df.columns.str.match(r"^Unnamed")]
 
-    # Normalize common missing tokens (only for object columns)
+    # Normalize common missing-value tokens (object columns only)
     for col in df.columns:
         if df[col].dtype == "object":
             df[col] = df[col].replace(
                 {"None or Unspecified": np.nan, "": np.nan, " ": np.nan}
             )
 
-    # Target to numeric + filter invalid
+    # Validate and clean target
     if TARGET_COL not in df.columns:
         raise ValueError(f"Target column '{TARGET_COL}' not found in dataset.")
 
@@ -64,7 +75,7 @@ def basic_clean(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(subset=[TARGET_COL])
     df = df[df[TARGET_COL] > 0]
 
-    # Parse date + safe time features
+    # Parse sale date and extract simple calendar features
     if DATE_COL in df.columns:
         df[DATE_COL] = pd.to_datetime(df[DATE_COL], errors="coerce")
         df["sale_year"] = df[DATE_COL].dt.year
@@ -75,24 +86,27 @@ def basic_clean(df: pd.DataFrame) -> pd.DataFrame:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
 
-    # Machine age feature (sale_year - Year Made)
+    # Derived feature: machine age at sale time
     if "sale_year" in df.columns and "Year Made" in df.columns:
         df["machine_age"] = df["sale_year"] - df["Year Made"]
         df.loc[df["machine_age"] < 0, "machine_age"] = np.nan
 
+    # Treat Auctioneer ID as categorical, not numeric
     if "Auctioneer ID" in df.columns:
         df["Auctioneer ID"] = df["Auctioneer ID"].astype("Int64").astype(str)
         df.loc[df["Auctioneer ID"] == "<NA>", "Auctioneer ID"] = np.nan
 
-
-    # Drop pure IDs
+    # Drop pure identifier columns to avoid leakage
     df = df.drop(columns=[c for c in ID_COLS if c in df.columns], errors="ignore")
 
     return df
 
 
+# ---------------------------------------------------------------------
+# Missing data diagnostics
+# ---------------------------------------------------------------------
 def analyze_missing_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Return a summary DataFrame sorted by missingness percentage."""
+    """Return a summary table of missing values by column."""
     missing_count = df.isnull().sum()
     missing_stats = pd.DataFrame(
         {
@@ -102,20 +116,19 @@ def analyze_missing_data(df: pd.DataFrame) -> pd.DataFrame:
             "dtype": df.dtypes.values,
         }
     )
-    missing_stats = (
+    return (
         missing_stats[missing_stats["missing_count"] > 0]
         .sort_values("missing_percent", ascending=False)
         .reset_index(drop=True)
     )
-    return missing_stats
 
 
 def print_missing_data_report(df: pd.DataFrame) -> None:
     """
     Print an informative missing data report.
 
-    High missingness does NOT imply dropping the column.
-    We keep features and handle missingness during preprocessing.
+    High missingness alone is not a reason to drop a feature:
+    presence/absence can still carry signal, especially for categoricals.
     """
     print("\n" + "=" * 70)
     print("MISSING DATA ANALYSIS")
@@ -140,7 +153,7 @@ def print_missing_data_report(df: pd.DataFrame) -> None:
     print("-" * 70)
     print(
         """
-• High missingness features may still carry signal via presence/absence
+• High-missingness features may still carry signal via presence/absence
 • Categorical features: impute with 'Unknown'
 • Numeric features: median imputation + optional missingness indicators
 """
@@ -162,13 +175,16 @@ Categorical:
     print("=" * 70 + "\n")
 
 
+# ---------------------------------------------------------------------
+# Splitting utilities
+# ---------------------------------------------------------------------
 def split_data(
     df: pd.DataFrame,
     test_size: float = 0.15,
     val_size: float = 0.15,
     seed: int = 42,
 ) -> DataSplit:
-    """Split into train / validation / test."""
+    """Split data into train / validation / test sets."""
     X = df.drop(columns=[TARGET_COL])
     y = df[TARGET_COL]
 
@@ -188,13 +204,16 @@ def split_data(
 
 
 def load_and_prepare(path: str, seed: int = 42) -> Tuple[DataSplit, pd.DataFrame]:
-    """Main entry used by main.py."""
+    """Convenience entry point for the full data preparation flow."""
     raw = load_raw_csv(path)
     clean = basic_clean(raw)
     splits = split_data(clean, seed=seed)
     return splits, clean
 
 
+# ---------------------------------------------------------------------
+# Debug / standalone execution
+# ---------------------------------------------------------------------
 if __name__ == "__main__":
     PATH = "BIT_AI_assignment_data.csv"  # adjust if needed
 

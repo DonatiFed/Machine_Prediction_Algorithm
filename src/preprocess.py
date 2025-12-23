@@ -12,13 +12,20 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 
+# ---------------------------------------------------------------------
+# Columns to drop
+# ---------------------------------------------------------------------
+# We keep engineered time features (sale_year, sale_month) and drop the raw datetime/text-like fields.
 DROP_COLS = [
-    "Sales date",             # raw datetime (we keep sale_year/month)
-    "Model Description",      # text-ish / redundant
-    "Secondary Description",  # text-ish / redundant
+    "Sales date",
+    "Model Description",
+    "Secondary Description",
 ]
 
 
+# ---------------------------------------------------------------------
+# Returned artifacts
+# ---------------------------------------------------------------------
 @dataclass(frozen=True)
 class PreprocessArtifacts:
     preprocessor: ColumnTransformer
@@ -26,20 +33,28 @@ class PreprocessArtifacts:
     categorical_cols: List[str]
 
 
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
 def drop_leakage_and_text(X: pd.DataFrame) -> pd.DataFrame:
-    """Apply the same drop policy consistently."""
+    """Drop raw date/text columns consistently across train/val/test."""
     return X.drop(columns=[c for c in DROP_COLS if c in X.columns], errors="ignore")
 
 
+# ---------------------------------------------------------------------
+# Main builder
+# ---------------------------------------------------------------------
 def build_preprocessor(
     X: pd.DataFrame,
     min_category_freq: int = 100,
 ) -> PreprocessArtifacts:
     """
-    Build a ColumnTransformer that:
-    - imputes numeric with median + adds missingness indicators
-    - imputes categoricals with 'Unknown'
-    - one-hot encodes categoricals, grouping rare categories
+    Build the preprocessing pipeline.
+
+    Design choices:
+    - Numeric: median imputation (robust) + missingness indicators (signal in "was missing")
+    - Categorical: explicit 'Unknown' for missing + one-hot encoding
+    - Rare categories are grouped via OneHotEncoder(min_frequency=...)
     """
     X = drop_leakage_and_text(X)
 
@@ -49,9 +64,9 @@ def build_preprocessor(
     numeric_cols = list(numeric_selector(X))
     categorical_cols = list(categorical_selector(X))
 
-    # add_indicator=True creates extra binary features for "was missing"
     numeric_pipe = Pipeline(
         steps=[
+            # add_indicator=True appends binary flags like "missingindicator_<col>"
             ("imputer", SimpleImputer(strategy="median", add_indicator=True)),
         ]
     )
@@ -59,11 +74,14 @@ def build_preprocessor(
     categorical_pipe = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="constant", fill_value="Unknown")),
-            ("ohe", OneHotEncoder(
-                handle_unknown="ignore",
-                min_frequency=min_category_freq,
-                sparse_output=True
-            )),
+            (
+                "ohe",
+                OneHotEncoder(
+                    handle_unknown="ignore",
+                    min_frequency=min_category_freq,
+                    sparse_output=True,
+                ),
+            ),
         ]
     )
 
@@ -79,7 +97,11 @@ def build_preprocessor(
     return PreprocessArtifacts(preprocessor, numeric_cols, categorical_cols)
 
 
+# ---------------------------------------------------------------------
+# Debug utility (optional, for local inspection)
+# ---------------------------------------------------------------------
 def debug_preprocessor(artifacts: PreprocessArtifacts, X: pd.DataFrame) -> None:
+    """Quick sanity check: column counts, transformed shape, sample feature names."""
     print("\n=== Preprocessing Debug ===")
     print("Numeric columns:", len(artifacts.numeric_cols))
     print("Categorical columns:", len(artifacts.categorical_cols))
@@ -87,7 +109,7 @@ def debug_preprocessor(artifacts: PreprocessArtifacts, X: pd.DataFrame) -> None:
     Xt = artifacts.preprocessor.fit_transform(drop_leakage_and_text(X))
     print("Transformed shape:", Xt.shape)
 
-    # Print a few feature names for interpretability
+    # Feature name preview helps reviewers understand the one-hot output
     try:
         names = artifacts.preprocessor.get_feature_names_out()
         print("\nSample transformed feature names:")
@@ -100,7 +122,9 @@ def debug_preprocessor(artifacts: PreprocessArtifacts, X: pd.DataFrame) -> None:
         print("⚠️ High feature count — consider increasing min_frequency")
 
 
-
+# ---------------------------------------------------------------------
+# Standalone run (debug only)
+# ---------------------------------------------------------------------
 if __name__ == "__main__":
     from data import load_and_prepare
 
@@ -109,5 +133,4 @@ if __name__ == "__main__":
     splits, _ = load_and_prepare(DATA_PATH)
 
     artifacts = build_preprocessor(splits.X_train)
-
     debug_preprocessor(artifacts, splits.X_train)

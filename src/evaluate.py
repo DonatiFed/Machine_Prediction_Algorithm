@@ -1,33 +1,42 @@
 # src/evaluate.py
 from __future__ import annotations
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-
 
 import json
 import os
-from dataclasses import asdict
-from typing import Dict, Optional
+from typing import Dict
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
+
+# ---------------------------------------------------------------------
+# Metrics & small I/O helpers
+# ---------------------------------------------------------------------
 def regression_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+    """Compute MAE, RMSE, and R² on the original (euro) scale."""
     mae = mean_absolute_error(y_true, y_pred)
     rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
     r2 = r2_score(y_true, y_pred)
     return {"MAE": float(mae), "RMSE": float(rmse), "R2": float(r2)}
 
+
 def ensure_dir(path: str) -> None:
+    """Create output directory if it doesn't exist."""
     os.makedirs(path, exist_ok=True)
 
 
 def save_json(obj: Dict, path: str) -> None:
+    """Save a small dict as pretty-printed JSON."""
     with open(path, "w") as f:
         json.dump(obj, f, indent=2)
 
 
+# ---------------------------------------------------------------------
+# Plots
+# ---------------------------------------------------------------------
 def plot_target_log_hist(y: np.ndarray, out_path: str, bins: int = 60) -> None:
-    """Histogram of log1p(target) to show right-skew + stabilization."""
+    """Histogram of log1p(target) to illustrate right-skew and stabilization."""
     plt.figure()
     plt.hist(np.log1p(y), bins=bins)
     plt.title("Target distribution: log1p(Sales Price)")
@@ -39,9 +48,9 @@ def plot_target_log_hist(y: np.ndarray, out_path: str, bins: int = 60) -> None:
 
 
 def plot_pred_vs_actual(
-    y_true: np.ndarray, y_pred: np.ndarray, out_path: str, max_points: int = 25000
+    y_true: np.ndarray, y_pred: np.ndarray, out_path: str, max_points: int = 25_000
 ) -> None:
-    """Scatter plot predicted vs actual (optionally subsampled for speed/size)."""
+    """Predicted vs actual scatter plot (optionally subsampled for speed and file size)."""
     n = len(y_true)
     if n > max_points:
         idx = np.random.RandomState(42).choice(n, size=max_points, replace=False)
@@ -50,8 +59,10 @@ def plot_pred_vs_actual(
 
     plt.figure()
     plt.scatter(y_true, y_pred, s=3, alpha=0.25)
+
     lim = max(float(np.max(y_true)), float(np.max(y_pred)))
     plt.plot([0, lim], [0, lim])
+
     plt.title("Predicted vs Actual")
     plt.xlabel("Actual price")
     plt.ylabel("Predicted price")
@@ -75,14 +86,11 @@ def plot_residuals(
     plt.close()
 
 
-def plot_feature_importance_lgbm(
-    pipe, out_path: str, top_n: int = 20
-) -> None:
+def plot_feature_importance_lgbm(pipe, out_path: str, top_n: int = 20) -> None:
     """
-    Horizontal bar chart of top-N feature importances.
-    Works when pipe is a sklearn Pipeline with:
-      - "prep" ColumnTransformer supporting get_feature_names_out()
-      - "model" LightGBM model with feature_importances_
+    Plot top-N feature importances for a fitted sklearn Pipeline:
+      - "prep": ColumnTransformer (supports get_feature_names_out)
+      - "model": LightGBM model (has feature_importances_)
     """
     model = pipe.named_steps.get("model", None)
     prep = pipe.named_steps.get("prep", None)
@@ -112,6 +120,9 @@ def plot_feature_importance_lgbm(
     plt.close()
 
 
+# ---------------------------------------------------------------------
+# End-to-end evaluation used by main.py
+# ---------------------------------------------------------------------
 def evaluate_and_save(
     model,
     preprocessor,
@@ -122,25 +133,26 @@ def evaluate_and_save(
     output_dir: str,
 ) -> None:
     """
-    Evaluate a fitted model (FitResult) on val/test, save metrics + plots to output_dir.
+    Evaluate a fitted model (FitResult) on validation and test sets,
+    then save metrics + plots to output_dir.
 
-    Assumes:
-      - model.pipeline is a sklearn Pipeline with steps ("prep", "model")
-      - model is trained on log1p(target) (LightGBM(log1p) in your case)
+    Assumptions:
+    - model.pipeline is a sklearn Pipeline with steps ("prep", "model")
+    - the model was trained on log1p(target), so we invert with expm1()
     """
     ensure_dir(output_dir)
 
-    # --- VAL ---
+    # Validation metrics
     y_val_pred = np.expm1(model.pipeline.predict(X_val))
     val_metrics = regression_metrics(y_val.values, y_val_pred)
     save_json(val_metrics, os.path.join(output_dir, "val_metrics.json"))
 
-    # --- TEST ---
+    # Test metrics
     y_test_pred = np.expm1(model.pipeline.predict(X_test))
     test_metrics = regression_metrics(y_test.values, y_test_pred)
     save_json(test_metrics, os.path.join(output_dir, "test_metrics.json"))
 
-    # --- PLOTS ---
+    # Diagnostics
     plot_pred_vs_actual(
         y_test.values,
         y_test_pred,
@@ -160,22 +172,19 @@ def evaluate_and_save(
     print("\nVAL metrics:", val_metrics)
     print("TEST metrics:", test_metrics)
 
-# ---------------------------
-# Self-test runner
-# ---------------------------
+
+# ---------------------------------------------------------------------
+# Standalone run (debug only)
+# ---------------------------------------------------------------------
 if __name__ == "__main__":
     """
-    Quick test: trains LightGBM via model.py and writes plots/metrics to outputs_eval_test/.
+    Quick sanity test: trains LightGBM via model.py and writes plots/metrics to outputs_eval_test/.
     Run:
-      /Users/.../bin/python src/evaluate.py
+      python src/evaluate.py
     """
     from data import load_and_prepare
+    from model import predict_euros_from_log_model, regression_metrics, train_lgbm_log_target
     from preprocess import build_preprocessor, drop_leakage_and_text
-    from model import (
-        train_lgbm_log_target,
-        predict_euros_from_log_model,
-        regression_metrics,
-    )
 
     OUT_DIR = "outputs_eval_test"
     DATA_PATH = "BIT_AI_assignment_data.csv"  # adjust if needed
@@ -190,7 +199,6 @@ if __name__ == "__main__":
         os.path.join(OUT_DIR, "target_log_hist.png"),
     )
 
-    # Build preprocessor (train only)
     artifacts = build_preprocessor(splits.X_train)
     preprocessor = artifacts.preprocessor
 
@@ -198,21 +206,17 @@ if __name__ == "__main__":
     X_val = drop_leakage_and_text(splits.X_val)
     X_test = drop_leakage_and_text(splits.X_test)
 
-    # Train LGBM
     print("Training LightGBM for evaluation test...")
     fit = train_lgbm_log_target(preprocessor, X_train, splits.y_train, X_val, splits.y_val)
     print("VAL metrics:", fit.metrics)
 
-    # Test predictions + metrics
     y_test_pred = predict_euros_from_log_model(fit.pipeline, X_test)
     test_metrics = regression_metrics(splits.y_test.values, y_test_pred)
     print("TEST metrics:", test_metrics)
 
-    # Save metrics
     save_json(fit.metrics, os.path.join(OUT_DIR, "val_metrics_lgbm.json"))
     save_json(test_metrics, os.path.join(OUT_DIR, "test_metrics_lgbm.json"))
 
-    # Plots
     plot_pred_vs_actual(
         splits.y_test.values,
         y_test_pred,
