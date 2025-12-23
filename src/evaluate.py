@@ -187,7 +187,7 @@ if __name__ == "__main__":
     from preprocess import build_preprocessor, drop_leakage_and_text
 
     OUT_DIR = "outputs_eval_test"
-    DATA_PATH = "BIT_AI_assignment_data.csv"  # adjust if needed
+    DATA_PATH = "BIT_AI_assignment_data.csv" 
 
     ensure_dir(OUT_DIR)
 

@@ -15,7 +15,7 @@ from sklearn.preprocessing import OneHotEncoder
 # ---------------------------------------------------------------------
 # Columns to drop
 # ---------------------------------------------------------------------
-# We keep engineered time features (sale_year, sale_month) and drop the raw datetime/text-like fields.
+# keep engineered time features (sale_year, sale_month) and drop the raw datetime/text-like fields.
 DROP_COLS = [
     "Sales date",
     "Model Description",
@@ -48,14 +48,7 @@ def build_preprocessor(
     X: pd.DataFrame,
     min_category_freq: int = 100,
 ) -> PreprocessArtifacts:
-    """
-    Build the preprocessing pipeline.
-
-    Design choices:
-    - Numeric: median imputation (robust) + missingness indicators (signal in "was missing")
-    - Categorical: explicit 'Unknown' for missing + one-hot encoding
-    - Rare categories are grouped via OneHotEncoder(min_frequency=...)
-    """
+    
     X = drop_leakage_and_text(X)
 
     numeric_selector = make_column_selector(dtype_include=np.number)
@@ -109,7 +102,7 @@ def debug_preprocessor(artifacts: PreprocessArtifacts, X: pd.DataFrame) -> None:
     Xt = artifacts.preprocessor.fit_transform(drop_leakage_and_text(X))
     print("Transformed shape:", Xt.shape)
 
-    # Feature name preview helps reviewers understand the one-hot output
+    
     try:
         names = artifacts.preprocessor.get_feature_names_out()
         print("\nSample transformed feature names:")
@@ -128,7 +121,7 @@ def debug_preprocessor(artifacts: PreprocessArtifacts, X: pd.DataFrame) -> None:
 if __name__ == "__main__":
     from data import load_and_prepare
 
-    DATA_PATH = "BIT_AI_assignment_data.csv"  # adjust if needed
+    DATA_PATH = "BIT_AI_assignment_data.csv"  
 
     splits, _ = load_and_prepare(DATA_PATH)
 

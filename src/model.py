@@ -123,7 +123,7 @@ if __name__ == "__main__":
     from data import load_and_prepare
     from preprocess import build_preprocessor, drop_leakage_and_text
 
-    DATA_PATH = "BIT_AI_assignment_data.csv"  # adjust if needed
+    DATA_PATH = "BIT_AI_assignment_data.csv"  
 
     splits, _ = load_and_prepare(DATA_PATH)
 

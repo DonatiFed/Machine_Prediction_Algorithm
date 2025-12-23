@@ -10,9 +10,9 @@ from model import train_lgbm_log_target
 from preprocess import build_preprocessor, drop_leakage_and_text
 
 
-# ---------------------------------------------------------------------
-# Configuration (kept minimal on purpose for this assignment)
-# ---------------------------------------------------------------------
+# ---------------
+# Configuration 
+# ---------------
 DATA_PATH = "BIT_AI_assignment_data.csv"
 OUTPUT_DIR = "outputs"
 SEED = 42
@@ -33,7 +33,7 @@ def main() -> None:
     print("\n[1/5] Loading and cleaning data...")
     splits, _ = load_and_prepare(DATA_PATH, seed=SEED)
 
-    # Apply the exact same drop policy to every split (no surprises downstream)
+    # Apply the exact same drop policy to every split 
     X_train = drop_leakage_and_text(splits.X_train)
     X_val = drop_leakage_and_text(splits.X_val)
     X_test = drop_leakage_and_text(splits.X_test)
