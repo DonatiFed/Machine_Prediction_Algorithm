@@ -136,6 +136,7 @@ The model generalizes well and shows minimal overfitting.
 
 ```bash
 pip install -r requirements.txt
+```
 Required packages:
 
 pandas
@@ -149,24 +150,19 @@ lightgbm
 matplotlib
 
 Run the Full Pipeline
-bash
-Copy code
+```bash
 python src/main.py
+```
 This will:
 
-Load and clean the data
-
-Build the preprocessing pipeline
-
-Train the LightGBM model
-
-Evaluate on validation and test sets
-
-Save all metrics and plots
+- Load and clean the data
+- Build the preprocessing pipeline
+- Train the LightGBM model
+- Evaluate on validation and test sets
+- Save all metrics and plots
 
 Project Structure
-text
-Copy code
+```
 .
 ├── src/
 │   ├── data.py        # Data loading and cleaning
@@ -176,10 +172,9 @@ Copy code
 │   └── main.py        # End-to-end pipeline
 ├── outputs/           # Saved metrics and figures
 ├── README.md
+```
 Notes and Future Improvements
-The pipeline is easily extensible to other models (XGBoost, CatBoost, linear baselines)
-
-Hyperparameter tuning and cross-validation could further improve performance
-
-Feature importance analysis could be extended using SHAP values
+- The pipeline is easily extensible to other models (XGBoost, CatBoost, linear baselines)
+- Hyperparameter tuning and cross-validation could further improve performance
+- Feature importance analysis could be extended using SHAP values
 
