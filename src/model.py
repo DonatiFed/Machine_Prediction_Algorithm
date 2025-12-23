@@ -43,7 +43,14 @@ def train_baseline(preprocessor, X_train, y_train, X_val, y_val) -> FitResult:
     return FitResult(name="DummyRegressor(median)", pipeline=pipe, metrics=metrics)
 
 
-def train_lgbm_log_target(preprocessor, X_train, y_train, X_val, y_val) -> FitResult:
+def train_lgbm_log_target(
+    preprocessor,
+    X_train,
+    y_train,
+    X_val,
+    y_val,
+    random_state: int = 42,
+) -> FitResult:
     """
     LightGBM trained on log1p(y).
     Predictions converted back to euros for metrics.
@@ -59,7 +66,7 @@ def train_lgbm_log_target(preprocessor, X_train, y_train, X_val, y_val) -> FitRe
         num_leaves=64,
         subsample=0.8,
         colsample_bytree=0.8,
-        random_state=42,
+        random_state=random_state,   # ← now wired correctly
         n_jobs=-1,
         force_row_wise=True,
         verbose=-1,
@@ -77,6 +84,7 @@ def train_lgbm_log_target(preprocessor, X_train, y_train, X_val, y_val) -> FitRe
 
     metrics = regression_metrics(y_val, pred)
     return FitResult(name="LightGBM(log1p)", pipeline=pipe, metrics=metrics)
+
 
 
 def predict_euros_from_log_model(pipe, X) -> np.ndarray:

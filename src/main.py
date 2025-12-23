@@ -2,15 +2,20 @@
 from __future__ import annotations
 
 from pathlib import Path
+import warnings
 
 from data import load_and_prepare
 from preprocess import build_preprocessor, drop_leakage_and_text
 from model import train_lgbm_log_target
 from evaluate import evaluate_and_save
 
-
+warnings.filterwarnings(
+    "ignore",
+    message="X does not have valid feature names, but LGBMRegressor was fitted with feature names",
+)
 DATA_PATH = "BIT_AI_assignment_data.csv"
 OUTPUT_DIR = "outputs"
+SEED = 42
 
 
 def main() -> None:
@@ -20,7 +25,7 @@ def main() -> None:
     # 1. Load and clean data
     # ------------------------------------------------------------------
     print("\n[1/5] Loading and cleaning data...")
-    splits, _ = load_and_prepare(DATA_PATH)
+    splits, _ = load_and_prepare(DATA_PATH, seed=SEED)
 
     X_train = drop_leakage_and_text(splits.X_train)
     X_val = drop_leakage_and_text(splits.X_val)
@@ -42,6 +47,7 @@ def main() -> None:
         splits.y_train,
         X_val,
         splits.y_val,
+        random_state=SEED,
     )
 
     # ------------------------------------------------------------------
