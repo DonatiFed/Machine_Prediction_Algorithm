@@ -1,4 +1,4 @@
-# Machine Price Prediction – Bit AI Assignment
+# Machine Price Prediction – Bit AI 
 
 This repository contains an end-to-end machine learning pipeline to predict the **Sales Price** of industrial machines using historical auction data.
 
